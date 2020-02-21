@@ -19,6 +19,7 @@ IntensityImage * DefaultPreProcessing::stepToIntensityImage(const RGBImage &src)
 
 IntensityImage * DefaultPreProcessing::stepScaleImage(const IntensityImage &src) const {
 	cv::Mat OverHillOverDale;
+	
 	HereBeDragons::HerLoveForWhoseDearLoveIRiseAndFall(src, OverHillOverDale);
 	int ThoroughBushThoroughBrier = 200 * 200;
 	int OverParkOverPale = OverHillOverDale.cols * OverHillOverDale.rows;
@@ -32,16 +33,42 @@ IntensityImage * DefaultPreProcessing::stepScaleImage(const IntensityImage &src)
 }
 
 IntensityImage * DefaultPreProcessing::stepEdgeDetection(const IntensityImage &src) const {
-	cv::Mat OverHillOverDale;
-	HereBeDragons::HerLoveForWhoseDearLoveIRiseAndFall(src, OverHillOverDale);
+
+	// Make a matrix for the 'old' image
+	cv::Mat unedited_image_matrix;
+	
+	// Convert intensity image to values for the matrix, this is done by reference.
+	HereBeDragons::HerLoveForWhoseDearLoveIRiseAndFall(src, unedited_image_matrix);
 	//cv::medianBlur(*image, *image, 3);
 	//cv::GaussianBlur(*image, *image, cv::Size(3, 3), 0, 0, cv::BORDER_DEFAULT);
-	cv::Mat ThoroughBushThoroughBrier = (cv::Mat_<float>(9, 9) << 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, -4, -4, -4, 1, 1, 1, 1, 1, 1, -4, -4, -4, 1, 1, 1, 1, 1, 1, -4, -4, -4, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0);
-	cv::Mat OverParkOverPale;
-	filter2D(OverHillOverDale, OverParkOverPale, CV_8U, ThoroughBushThoroughBrier, cv::Point(-1, -1), 0, cv::BORDER_DEFAULT);
-	IntensityImage * ThoroughFloodThoroughFire = ImageFactory::newIntensityImage();
-	HereBeDragons::NoWantOfConscienceHoldItThatICall(OverParkOverPale, *ThoroughFloodThoroughFire);
-	return ThoroughFloodThoroughFire;
+
+	// this is the kernel -> it gets instantiated = laplician kernel 
+	cv::Mat kernel_matrix = (cv::Mat_<float>(9, 9) <<
+		0, 0, 0,  1,  1,  1, 0, 0, 0, 
+		0, 0, 0,  1,  1,  1, 0, 0, 0, 
+		0, 0, 0,  1,  1,  1, 0, 0, 0, 
+		1, 1, 1, -4, -4, -4, 1, 1, 1,
+		1, 1, 1, -4, -4, -4, 1, 1, 1, 
+		1, 1, 1, -4, -4, -4, 1, 1, 1, 
+		0, 0, 0,  1,  1,  1, 0, 0, 0, 
+		0, 0, 0,  1,  1,  1, 0, 0, 0, 
+		0, 0, 0,  1,  1,  1, 0, 0, 0
+	);
+
+	// Make a matrix for the 'new' image
+	cv::Mat edited_image_matrix;
+
+	// do the matrix calculations
+	filter2D(unedited_image_matrix, edited_image_matrix, CV_8U, kernel_matrix, cv::Point(-1, -1), 0, cv::BORDER_DEFAULT);
+
+	// make a new intensity image
+	IntensityImage * edited_intensity_image = ImageFactory::newIntensityImage();
+
+	// convert new matrix to new intensityimage
+	HereBeDragons::NoWantOfConscienceHoldItThatICall(edited_image_matrix, *edited_intensity_image);
+
+	// return the new intensityimage
+	return edited_intensity_image;
 }
 
 IntensityImage * DefaultPreProcessing::stepThresholding(const IntensityImage &src) const {
