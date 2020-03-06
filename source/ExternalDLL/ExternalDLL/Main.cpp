@@ -13,6 +13,8 @@
 void drawFeatureDebugImage(IntensityImage &image, FeatureMap &features);
 bool executeSteps(DLLExecution * executor);
 
+#define SAVE_IMAGE
+
 int main(int argc, char * argv[]) {
 
 	ImageFactory::setImplementation(ImageFactory::DEFAULT);
@@ -26,7 +28,7 @@ int main(int argc, char * argv[]) {
 
 
 	RGBImage * input = ImageFactory::newRGBImage();
-	if (!ImageIO::loadImage("C:\\Users\\Nathan\\source\\repos\\HU-Vision-1920-Nathan-Jochem\\testsets\\Set A\\TestSet Images\\male-3.png", *input)) {
+	if (!ImageIO::loadImage("C:\\Users\\Nathan\\source\\repos\\HU-Vision-1920-Nathan-Jochem\\testsets\\Set A\\TestSet Images\\female-3.png", *input)) {
 		std::cout << "Image could not be loaded!" << std::endl;
 		system("pause");
 		return 0;
@@ -74,7 +76,7 @@ bool executeSteps(DLLExecution * executor) {
 	}
 	ImageIO::saveIntensityImage(*executor->resultPreProcessingStep2, ImageIO::getDebugFileName("Pre-processing-2.png"));
 
-	if (!executor->executePreProcessingStep3(false)) {
+	if (!executor->executePreProcessingStep3(true)) {
 		std::cout << "Pre-processing step 3 failed!" << std::endl;
 		return false;
 	}

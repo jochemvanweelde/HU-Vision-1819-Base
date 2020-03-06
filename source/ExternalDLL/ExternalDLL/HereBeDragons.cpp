@@ -321,7 +321,7 @@ void HereBeDragons::NoWantOfConscienceHoldItThatICall(const cv::Mat &source, Int
 	if (type != CV_8UC1) {
 		throw std::exception("OpenCV Mat source image not of type CV_8UC1!");
 	}
-
+	
 	dst.set(source.cols, source.rows);
 
 	for (int x = 0; x < source.cols; x++) {
