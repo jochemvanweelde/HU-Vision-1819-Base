@@ -15,12 +15,16 @@ IntensityImage * StudentPreProcessing::stepScaleImage(const IntensityImage &imag
 	return nullptr;
 }
 
-cv::Mat hypo(const cv::Mat& sobel_x, const cv::Mat& sobel_y){ //, const cv::Mat& sobel_d1, const cv::Mat& sobel_d2) {
+std::pair<cv::Mat, cv::Mat> hypo(const cv::Mat& sobel_x, const cv::Mat& sobel_y){ //, const cv::Mat& sobel_d1, const cv::Mat& sobel_d2) {
     assert(sobel_x.rows == sobel_y.rows);
     assert(sobel_x.cols == sobel_y.cols);
 
     cv::Mat magnitude;
     magnitude.create(sobel_x.rows, sobel_x.cols, CV_8UC1);
+
+    cv::Mat direction;
+    direction.create(sobel_x.rows, sobel_x.cols, CV_32FC1);
+
    
     for (int x = 0; x < sobel_x.rows; x++) {
         for (int y = 0; y < sobel_x.cols; y++) {
@@ -29,10 +33,13 @@ cv::Mat hypo(const cv::Mat& sobel_x, const cv::Mat& sobel_y){ //, const cv::Mat&
            /* uint32_t d1_val = sobel_d1.at<uchar>(x, y);
             uint32_t d2_val = sobel_d2.at<uchar>(x, y);*/
             magnitude.at<uchar>(x, y) = static_cast<uchar>(sqrt(pow(x_val, 2) + pow(y_val, 2))); // +pow(d1_val, 2) + pow(d2_val, 2)));
+            auto angle = atan2(y, x) * 180.f/ 3.14159265358979323846;
+            if (angle < 0.f) { angle += 180; }
+            direction.at<float>(x, y) = static_cast<float>(angle);
         }
     }
 
-    return magnitude;
+    return std::pair<cv::Mat, cv::Mat>(magnitude, direction);
 }
 
 
@@ -50,6 +57,8 @@ cv::Mat constructGaussianFilter(const double& sigma, const unsigned int size = 2
             sum += gaussian_filter.at<double>(x + 2,y + 2);
         }
     }
+
+    
 
     for (int x=0; x < 5; x++) {
         for (int y=0; y < 5; y++) {
@@ -93,14 +102,14 @@ IntensityImage* applyGaussianBlur(const IntensityImage& image, const double &sig
     HereBeDragons::NoWantOfConscienceHoldItThatICall(edited_image_matrix, *edited_intensity_image);
 
 #ifdef SAVE_IMAGE
-    ImageIO::saveIntensityImage(*edited_intensity_image, ImageIO::getDebugFileName("gaussian_filter_student.png"));
+    ImageIO::saveIntensityImage(*edited_intensity_image, ImageIO::getDebugFileName("gaussian_filter.png"));
 #endif // SAVE_IMAGE
 
     // return the new intensityimage
     return edited_intensity_image;
 }
 
-IntensityImage* applySobel(const IntensityImage& image) {
+std::pair<IntensityImage*, cv::Mat> applySobel(const IntensityImage& image) {
 #define SAVE_IMAGE 1
 #define DEBUG 1
     // Make a matrix for the 'old' image
@@ -144,7 +153,7 @@ IntensityImage* applySobel(const IntensityImage& image) {
     cv::pow(edited_image_matrix_y, 2, edited_image_matrix_y);*/
    /* cv::pow(edited_image_matrix_d1, 2, edited_image_matrix_d1);
     cv::pow(edited_image_matrix_d2, 2, edited_image_matrix_d2);*/
-    
+  
     //edited_image_matrix_x += edited_image_matrix_y;// +edited_image_matrix_d1 + edited_image_matrix_d2;
     //edited_image_matrix_x /= 2;
     // make a new intensity image
@@ -154,45 +163,61 @@ IntensityImage* applySobel(const IntensityImage& image) {
 
 
     // convert new matrix to new intensityimages
-    HereBeDragons::NoWantOfConscienceHoldItThatICall(final , *edited_intensity_image);
+    HereBeDragons::NoWantOfConscienceHoldItThatICall(final.first, *edited_intensity_image);
 
 #ifdef SAVE_IMAGE
-    ImageIO::saveIntensityImage(*edited_intensity_image, ImageIO::getDebugFileName("sobell_filter_student4.png"));
+    ImageIO::saveIntensityImage(*edited_intensity_image, ImageIO::getDebugFileName("sobell_filter.png"));
 #endif // SAVE_IMAGE
 
 
     // return the new intensityimage
-    return edited_intensity_image;
+    return std::pair<IntensityImage*, cv::Mat>(edited_intensity_image, final.second);
 }
 
 
 
-IntensityImage* applyEdgeThinning(const IntensityImage& image) {
+IntensityImage* applyEdgeThinning(const IntensityImage& image, const cv::Mat& direction_matrix) {
 #define SAVE_
     // Make a matrix for the 'old' image
     cv::Mat unedited_image_matrix;
-
     // Convert intensity image to values for the matrix, this is done by reference.
     HereBeDragons::HerLoveForWhoseDearLoveIRiseAndFall(image, unedited_image_matrix);
     
+    // Create a matrix initialized to 0 of the same size of the original gradient intensity matrix
     cv::Mat edited_image_matrix;
-
     edited_image_matrix.create(unedited_image_matrix.rows, unedited_image_matrix.cols, CV_8UC1);
    
+
+
+
     for (int x = 1; x < unedited_image_matrix.rows - 1; x++) {
         for (int y = 1; y < unedited_image_matrix.cols - 1; y++) {
-            if (
-                unedited_image_matrix.at<uchar>(x - 1, y - 1) == 255 ||
-                unedited_image_matrix.at<uchar>(x - 1, y) == 255 ||
-                unedited_image_matrix.at<uchar>(x - 1, y + 1) == 255 ||
-                unedited_image_matrix.at<uchar>(x, y - 1) == 255 ||
-                unedited_image_matrix.at<uchar>(x, y + 1) == 255 ||
-                unedited_image_matrix.at<uchar>(x + 1, y - 1) == 255 ||
-                unedited_image_matrix.at<uchar>(x + 1, y) == 255 ||
-                unedited_image_matrix.at<uchar>(x + 1, y + 1) == 255)
-            {
-                edited_image_matrix.at<uchar>(x, y) = 255;
-            }else {
+
+            uchar x_dir = 255;
+            uchar y_dir = 255;
+
+            // Angle = 0 degrees
+            if ((0 <= direction_matrix.at<uchar>(x, y) < 22.5) || (157.5 <= direction_matrix.at<uchar>(x, y) <= 180)) {
+                x_dir = unedited_image_matrix.at<uchar>(x, y + 1);
+                y_dir = unedited_image_matrix.at<uchar>(x, y - 1);
+            } // Angle = 45 degrees
+            else if( 22.5 <= direction_matrix.at<uchar>(x, y) < 67.5){
+                x_dir = unedited_image_matrix.at<uchar>(x + 1, y - 1);
+                y_dir = unedited_image_matrix.at<uchar>(x - 1, y + 1);
+            } // Angle = 90 degrees
+            else if (67.5 <= direction_matrix.at<uchar>(x, y) < 112.5) {
+                x_dir = unedited_image_matrix.at<uchar>(x + 1, y );
+                y_dir = unedited_image_matrix.at<uchar>(x - 1, y );
+            } // Angle = 135 degrees
+            else if (67.5 <= direction_matrix.at<uchar>(x, y) < 112.5) {
+                x_dir = unedited_image_matrix.at<uchar>(x - 1, y - 1);
+                y_dir = unedited_image_matrix.at<uchar>(x + 1, y + 1);
+            }
+
+            if ((unedited_image_matrix.at<uchar>(x, y) > x_dir) && (unedited_image_matrix.at<uchar>(x, y) > y_dir)) {
+                edited_image_matrix.at<uchar>(x, y) = unedited_image_matrix.at<uchar>(x, y);
+            }
+            else {
                 edited_image_matrix.at<uchar>(x, y) = 0;
             }
         }
@@ -210,8 +235,97 @@ IntensityImage* applyEdgeThinning(const IntensityImage& image) {
 
     // return the new intensityimage
     return edited_intensity_image;
-
 }
+
+IntensityImage* applyDoubleThreshold(const IntensityImage& image, const uchar strong=60, const uchar weak=20) {
+    
+
+
+    // Make a matrix for the 'old' image
+    cv::Mat unedited_image_matrix;
+    
+    // Convert intensity image to values for the matrix, this is done by reference.
+    HereBeDragons::HerLoveForWhoseDearLoveIRiseAndFall(image, unedited_image_matrix);
+
+    // Create a matrix initialized to 0 of the same size of the original gradient intensity matrix
+    cv::Mat edited_image_matrix;
+    edited_image_matrix.create(unedited_image_matrix.rows, unedited_image_matrix.cols, CV_8UC1);
+
+    for (int x = 1; x < unedited_image_matrix.rows - 1; x++) {
+        for (int y = 1; y < unedited_image_matrix.cols - 1; y++) {
+            if (unedited_image_matrix.at<uchar>(x, y) >= strong) {
+                edited_image_matrix.at<uchar>(x, y) = 255;
+            } 
+            else if(unedited_image_matrix.at<uchar>(x, y) >= weak ){
+                edited_image_matrix.at<uchar>(x, y) = 128;
+            }
+            else {
+                edited_image_matrix.at<uchar>(x, y) = 0;
+            }
+        }
+    }
+
+    // Make a new intensity image for the new converted image
+    IntensityImage* edited_intensity_image = ImageFactory::newIntensityImage();
+
+    // Convert new matrix to new intensityimage
+    HereBeDragons::NoWantOfConscienceHoldItThatICall(edited_image_matrix, *edited_intensity_image);
+
+#ifdef SAVE_IMAGE
+    ImageIO::saveIntensityImage(*edited_intensity_image, ImageIO::getDebugFileName("double_threshold.png"));
+#endif // SAVE_IMAGE
+ 
+    // return the new intensityimage
+    return edited_intensity_image;
+}
+
+
+IntensityImage* applyHysteresisThreshold(const IntensityImage& image, const uchar strong = 230, const uchar weak = 50) {
+    
+    // Make a matrix for the 'old' image
+    cv::Mat image_matrix;
+
+    // Convert intensity image to values for the matrix, this is done by reference.
+    HereBeDragons::HerLoveForWhoseDearLoveIRiseAndFall(image, image_matrix);
+
+ 
+
+    for (int x = 1; x < image_matrix.rows - 1; x++) {
+        for (int y = 1; y < image_matrix.cols - 1; y++) {
+            if (image_matrix.at<uchar>(x, y) == 128) {
+                if (
+                    image_matrix.at<uchar>(x + 1, y - 1) == 255 ||
+                    image_matrix.at<uchar>(x + 1, y) == 255 ||
+                    image_matrix.at<uchar>(x + 1, y + 1) == 255 ||
+                    image_matrix.at<uchar>(x, y - 1) == 255 ||
+                    image_matrix.at<uchar>(x, y + 1) == 255 ||
+                    image_matrix.at<uchar>(x - 1, y - 1) == 255 ||
+                    image_matrix.at<uchar>(x - 1, y) == 255 ||
+                    image_matrix.at<uchar>(x - 1, y + 1) == 255
+                    ) {
+                    image_matrix.at<uchar>(x, y) = 255;
+                }
+                else {
+                    image_matrix.at<uchar>(x, y) = 0;
+                }
+            }
+        }
+    }
+
+    // Make a new intensity image for the new converted image
+    IntensityImage* edited_intensity_image = ImageFactory::newIntensityImage();
+
+    // Convert new matrix to new intensityimage
+    HereBeDragons::NoWantOfConscienceHoldItThatICall(image_matrix, *edited_intensity_image);
+
+#ifdef SAVE_IMAGE
+    ImageIO::saveIntensityImage(*edited_intensity_image, ImageIO::getDebugFileName("final.png"));
+#endif // SAVE_IMAGE
+
+    // return the new intensityimage
+    return edited_intensity_image;
+}
+
 
 /**
 * In this function, Canny edge detection will be implemented.
@@ -225,16 +339,23 @@ IntensityImage* applyEdgeThinning(const IntensityImage& image) {
 IntensityImage* StudentPreProcessing::stepEdgeDetection(const IntensityImage& image) const {
     
     // Apply Gaussian Blurrr
-    const double sigma = 0.1;
+    const double sigma = 1.4;
     auto image_after_gaussian = applyGaussianBlur(image, sigma);
 
     // Apply Sobell Filter
     auto image_after_sobell = applySobel(*image_after_gaussian);
     
     // Apply Edge Thinning
-    auto image_after_edge_thinning = applyEdgeThinning(*image_after_sobell);
+    auto image_after_edge_thinning = applyEdgeThinning(*image_after_sobell.first, image_after_sobell.second);
 
-    return image_after_edge_thinning;
+    // Apply Double threshold
+    auto image_after_double_threshold = applyDoubleThreshold(*image_after_edge_thinning);
+
+    // Apply Hesteresis threshols
+    auto final_image = applyHysteresisThreshold(*image_after_double_threshold);
+
+
+    return final_image;
 }
 
 IntensityImage * StudentPreProcessing::stepThresholding(const IntensityImage &image) const {
