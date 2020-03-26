@@ -15,42 +15,59 @@ bool executeSteps(DLLExecution * executor);
 
 #define SAVE_IMAGE
 
-int main(int argc, char * argv[]) {
+int main(int argc, char* argv[]) {
 
 	ImageFactory::setImplementation(ImageFactory::DEFAULT);
 	//ImageFactory::setImplementation(ImageFactory::STUDENT);
 
 
-	ImageIO::debugFolder = "C:\\Users\\Nathan\\Downloads" ;
 	ImageIO::isInDebugMode = true; //If set to false the ImageIO class will skip any image save function calls
+	std::string gender = "female";
 
 
+	for (int i = 1; i < 51; i++) {
+		
+		std::string current = gender + "-" + std::to_string(i);
 
+		ImageIO::debugFolder = "D:\\Nathan\\Bestanden\\HU\\Jaar_2\\Vision\\testsets\\Set A\\LoG_5x5\\" + current;
+		
+		std::cout << "analysing iamge:" + current + ".png" << std::endl;
+		std::string filepath = "D:\\Nathan\\Bestanden\\HU\\Jaar_2\\Vision\\testsets\\Set A\\TestSet Images\\" + current +".png";
+		RGBImage* input = ImageFactory::newRGBImage();
 
-	RGBImage * input = ImageFactory::newRGBImage();
-	if (!ImageIO::loadImage("C:\\Users\\Nathan\\Documents\\HU-Vision-1920-Nathan-Jochem\\testsets\\Set A\\TestSet Images\\emma.png", *input)) {
-		std::cout << "Image could not be loaded!" << std::endl;
-		system("pause");
-		return 0;
-	}
-
-
-	ImageIO::saveRGBImage(*input, ImageIO::getDebugFileName("debug.png"));
-
-	DLLExecution * executor = new DLLExecution(input);
-
-
-	if (executeSteps(executor)) {
-		std::cout << "Face recognition successful!" << std::endl;
-		std::cout << "Facial parameters: " << std::endl;
-		for (int i = 0; i < 16; i++) {
-			std::cout << (i+1) << ": " << executor->facialParameters[i] << std::endl;
+		if (!ImageIO::loadImage(filepath, *input)) {
+			std::cout << "Image could not be loaded!" << std::endl;
+			system("pause");
+			return 0;
 		}
+
+
+		ImageIO::saveRGBImage(*input, ImageIO::getDebugFileName("debug.png"));
+
+		DLLExecution* executor = new DLLExecution(input);
+
+
+		if (executeSteps(executor)) {
+			std::cout << "Face recognition successful!" << std::endl;
+			std::cout << "Facial parameters: " << std::endl;
+			for (int i = 0; i < 16; i++) {
+				std::cout << (i + 1) << ": " << executor->facialParameters[i] << std::endl;
+			}
+		}
+
+		delete executor;
+		delete input;
+
+		std::cout << "\n\n\n";
+
+		if (i == 50 && gender == "male") {break;}
+		if (i == 50) { i = 0; gender = "male"; }
 	}
 
-	delete executor;
 	system("pause");
 	return 1;
+
+	
 }
 
 
