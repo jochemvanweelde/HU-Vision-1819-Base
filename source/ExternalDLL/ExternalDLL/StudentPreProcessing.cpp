@@ -17,7 +17,7 @@ IntensityImage * StudentPreProcessing::stepScaleImage(const IntensityImage &imag
 }
 
 // This function adds up the four sobell filters (x, y, d1 and d2)
-// Afther that the highest value within the matrix will be set to a max value 
+// After that the highest value within the matrix will be set to a max value 
 // of 255. The other values will be scaled approprately to the 255. This is needed
 // Because the image depth is 1 byte. ( 8 bits, 255 max)
 std::pair<cv::Mat, cv::Mat> hypo(const cv::Mat& sobel_x, const cv::Mat& sobel_y, const cv::Mat& sobel_d1, const cv::Mat& sobel_d2) {
@@ -31,8 +31,6 @@ std::pair<cv::Mat, cv::Mat> hypo(const cv::Mat& sobel_x, const cv::Mat& sobel_y,
     direction.create(sobel_x.rows, sobel_x.cols, CV_32FC1);
     cv::Mat return_mat;
     return_mat.create(sobel_x.rows, sobel_x.cols, CV_8U);
-
-   
 
     uint16_t max = 0;
    
@@ -83,8 +81,6 @@ cv::Mat constructGaussianFilter(const double& sigma) {
             sum += gaussian_filter.at<double>(x + 2,y + 2);
         }
     }
-
-    
 
     for (int x=0; x < 5; x++) {
         for (int y=0; y < 5; y++) {
@@ -147,19 +143,23 @@ std::pair<IntensityImage*, cv::Mat> applySobel(const IntensityImage& image) {
 
     // Convert intensity image to values for the matrix, this is done by reference.
     HereBeDragons::HerLoveForWhoseDearLoveIRiseAndFall(image, unedited_image_matrix);
-
+    
+    //The sobel kernel in the x direction (-)
     cv::Mat sobel_x = (cv::Mat_<double>(3, 3) <<
          1, 0, -1,
          2, 0, -2,
          1, 0, -1);
+    //The sobel kernel in the y direction (|)
     cv::Mat sobel_y = (cv::Mat_<double>(3, 3) <<
          1,  2,  1,
          0,  0,  0,
         -1, -2, -1);
+    //The sobel kernel in the diagonal direction (/)
     cv::Mat sobel_d1 = (cv::Mat_<double>(3, 3) <<
          0,  1,  2,
         -1,  0,  1,
         -2, -1,  0);
+    //The socel kernel in the diagonal direction (\)
     cv::Mat sobel_d2 = (cv::Mat_<double>(3, 3) <<
         -2, -1,  0,
         -1,  0,  1,
@@ -191,7 +191,7 @@ std::pair<IntensityImage*, cv::Mat> applySobel(const IntensityImage& image) {
 
 #endif // SAVE_IMAGE
 
-
+    //Merge all sobel images to one
     auto final = hypo(edited_image_matrix_x, edited_image_matrix_y, edited_image_matrix_d1, edited_image_matrix_d2);
     IntensityImage* edited_intensity_image = ImageFactory::newIntensityImage();
 
@@ -221,7 +221,7 @@ IntensityImage* applyEdgeThinning(const IntensityImage& image, const cv::Mat& di
     cv::Mat edited_image_matrix;
     edited_image_matrix.create(unedited_image_matrix.rows, unedited_image_matrix.cols, CV_8UC1);
    
-
+    //Check the direction of a pixel. Change pixel to black if wrong direction else keep the pixel.
     for (int x = 1; x < unedited_image_matrix.rows - 1; x++) {
         for (int y = 1; y < unedited_image_matrix.cols - 1; y++) {
 
@@ -270,7 +270,7 @@ IntensityImage* applyEdgeThinning(const IntensityImage& image, const cv::Mat& di
 }
 
 
-//
+//Apply Double Thresholding to an Image
 IntensityImage* applyDoubleThreshold(const IntensityImage& image, const uchar strong=60, const uchar weak=20) {
 
     // Make a matrix for the 'old' image
@@ -283,16 +283,17 @@ IntensityImage* applyDoubleThreshold(const IntensityImage& image, const uchar st
     cv::Mat edited_image_matrix;
     edited_image_matrix.create(unedited_image_matrix.rows, unedited_image_matrix.cols, CV_8UC1);
 
+    //loop through every pixel and apply thresholding
     for (int x = 1; x < unedited_image_matrix.rows - 1; x++) {
         for (int y = 1; y < unedited_image_matrix.cols - 1; y++) {
-            if (unedited_image_matrix.at<uchar>(x, y) >= strong) {
-                edited_image_matrix.at<uchar>(x, y) = 255;
+            if (unedited_image_matrix.at<uchar>(x, y) >= strong) { 
+                edited_image_matrix.at<uchar>(x, y) = 255; //if >= strong set pixel to fully white (pixel is important)
             } 
             else if(unedited_image_matrix.at<uchar>(x, y) >= weak ){
-                edited_image_matrix.at<uchar>(x, y) = 128;
+                edited_image_matrix.at<uchar>(x, y) = 128; //if >= weak set pixel to grey (pixel could be important)
             }
             else {
-                edited_image_matrix.at<uchar>(x, y) = 0;
+                edited_image_matrix.at<uchar>(x, y) = 0; // Else set pixel to black (pixel not important)
             }
         }
     }
@@ -311,7 +312,7 @@ IntensityImage* applyDoubleThreshold(const IntensityImage& image, const uchar st
     return edited_intensity_image;
 }
 
-
+//Apply Edge tracking by hysteresis to an Image. Makes possible pixels(grey) important if connected to a white pixel.
 IntensityImage* applyHysteresisThreshold(const IntensityImage& image) {
     
     // Make a matrix for the 'old' image
@@ -321,10 +322,11 @@ IntensityImage* applyHysteresisThreshold(const IntensityImage& image) {
     HereBeDragons::HerLoveForWhoseDearLoveIRiseAndFall(image, image_matrix);
 
  
-
+    //Loop through every pixel
     for (int x = 1; x < image_matrix.rows - 1; x++) {
         for (int y = 1; y < image_matrix.cols - 1; y++) {
-            if (image_matrix.at<uchar>(x, y) == 128) {
+            if (image_matrix.at<uchar>(x, y) == 128) { //Only do something with grey pixels
+                //If there is a white pixel (important) next to this pixel...
                 if (
                     image_matrix.at<uchar>(x + 1, y - 1) == 255 ||
                     image_matrix.at<uchar>(x + 1, y) == 255 ||
@@ -335,10 +337,10 @@ IntensityImage* applyHysteresisThreshold(const IntensityImage& image) {
                     image_matrix.at<uchar>(x - 1, y) == 255 ||
                     image_matrix.at<uchar>(x - 1, y + 1) == 255
                     ) {
-                    image_matrix.at<uchar>(x, y) = 255;
+                    image_matrix.at<uchar>(x, y) = 255; //...True: set pixel to white
                 }
                 else {
-                    image_matrix.at<uchar>(x, y) = 0;
+                    image_matrix.at<uchar>(x, y) = 0;  //...False: set pixel to black
                 }
             }
         }
@@ -369,6 +371,7 @@ IntensityImage* invertImage(const IntensityImage& original) {
     cv::Mat edited_image_matrix;
     edited_image_matrix.create(image_matrix.rows, image_matrix.cols, CV_8UC1);
 
+    //Loop through every pixel and change black pixels to white and vice versa
     for (int x = 0; x < image_matrix.rows; x++) {
         for (int y = 0; y < image_matrix.cols; y++) {
             if (image_matrix.at<uchar>(x, y) == 0) {
